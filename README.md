@@ -1,157 +1,97 @@
-**GTASceneSync (SA Only) Blender Add‑on**
-*Export GTA San Andreas IDE and IPL files directly from Blender, with both batch and per-object controls, plus handy utility tools.*
+# GTASceneSync — (v2.3.3)
+
+# GTASceneSync — Description & How It Works
+
+**Short description**
+GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-style IDE and IPL files from Blender scenes. It names instances by collection (strips `.dff`) or cleaned object names, lets you assign per-object IDE flags / TXD names, batch-assign TXDs, mark collision objects, then export IDE and (ASCII) IPL files ready for GTA San Andreas workflows.
+
+**Target Blender / prerequisites**
+
+* Designed for Blender 4.0+ (backwards compatibility generally ok but tested with 4.x)
+* No external Python libraries required — pure Blender Python API
+* Basic familiarity with Blender Collections and selecting objects
 
 ---
 
-#Preview
+## Main features
 
-![Screenshot 2025-05-28 102716](https://github.com/user-attachments/assets/2a7064ec-d3da-43d9-a74a-1103325df804)
+* Export selected mesh objects to **IDE** (text) mapping (auto-assign model IDs).
+* Export selected mesh objects to **ASCII IPL** (`inst` block — text format).
+* Per-object IDE properties:
 
-Note.. Install DragonFF for convert to col to work
-## Features
+  * `texture_name` (TXD)
+  * `ide_flag` (enumerated)
+  * `render_distance`
+* Batch assign TXD name to selected objects.
+* Mark objects as **collision objects** using `To Collision` (safe `Object.dff.type = 'COL'` property).
+* Utilities: batch rename, reset position, remove materials.
+* Clean naming rules:
 
-* **IDE Export**
-  Generate a San Andreas `.ide` file listing unique models from selected meshes, with configurable start ID and per-object flags.
-
-* **IPL Export**
-  Export placement `.ipl` files in either ASCII or binary format.
-
-  * Optionally apply a default rotation to all instances.
-  * Auto‑assign model IDs based on cleaned object names.
-
-* **Batch Utilities**
-
-  * **Rename**: Give selected objects a consistent base name with incremental suffixes.
-  * **Reset Position**: Move objects back to the world origin (0,0,0).
-  * **Remove Materials**: Strip all materials from selected meshes.
-  * **Convert to Collision**: Tag selected meshes as collision objects (sets a custom `dff.type` property).
-
-* **Batch TXD Assignment**
-  Quickly set the texture dictionary (TXD) name for all selected meshes at once.
-
-* **Per‑Object IDE Flags**
-  In the UI sidebar, adjust for each selected mesh:
-
-  * Texture name (TXD)
-  * Render distance
-  * Custom IDE flag
-
-* **Intuitive UI Panel**
-  All tools are grouped under *View3D → UI → GTASceneSync* for fast access.
+  * Collection names: `.dff` suffix stripped (case-insensitive)
+  * Object names: numeric suffix `.1`, `.2` trimmed
+* Scene-level `Start ID` setting to control the model id counter used when exporting.
 
 ---
 
-## Requirements
+## How it works (workflow)
 
-* Blender **4.0** or newer
-* Python scripting enabled (default in Blender)
+1. **Prepare scene**
 
----
+   * Put models into collections named after the model (optionally with a `.dff` suffix).
+   * Select the mesh objects you want to export (selection order does not change ID assignment — IDs are assigned per unique collection/name).
+2. **Set per-object metadata**
 
-## Installation
+   * In the GTASceneSync panel (View3D → UI → GTASceneSync), select an object and set `TXD`, `Flag`, and `Draw Dist` using the per-object fields.
+   * Use `Batch assign TXD` to set the same TXD for many objects quickly.
+3. **Mark collision objects**
 
-1. **Download** the `GTASceneSync` add‑on directory (containing this script).
-2. In Blender, go to **Edit → Preferences → Add-ons → Install…**
-3. Select the `.py` script or containing folder and click **Install Add-on**.
-4. Enable **GTASceneSync (SA Only)** in the list.
+   * Select objects and press **To Collision**. The addon writes `obj.dff.type = 'COL'` (safe Blender property) to mark them as collision — used by downstream exporters / pipelines.
+4. **Set Start ID**
 
----
+   * Set `Start ID` in the panel if you want a custom model ID base. This value will prefill the export dialogs.
+5. **Export IDE**
 
-## Usage
-
-Once enabled, open the **GTASceneSync** panel in the 3D Viewport sidebar (press **N**):
-
-### 1. Utilities
-
-* **Batch Rename**
-
-  1. Enter your desired base name in the **Rename Base** field.
-  2. Select objects → click **Rename** → objects become `BaseName_1`, `BaseName_2`, …
-
-* **Reset Position**
-
-  * With objects selected, click **Reset Pos** to move them all to (0,0,0).
-
-* **Remove All Materials**
-
-  * Click **Remove Mats** to clear materials on selected meshes.
-
-* **Convert to Collision Object**
-
-  * Click **To Collision** to tag meshes as collision models in downstream exporters.
-
----
-
-### 2. Batch TXD Assignment
-
-1. Type your TXD name into **TXD Name**.
-2. Select target meshes → click **Set TXD** → all get the same texture dictionary reference.
-
----
-
-### 3. Per‑Object Settings
-
-For each selected mesh, you’ll see a collapsible box showing:
-
-* **Texture Name (TXD)**
-* **IDE Flag** (e.g. default, special behaviors)
-* **Draw Distance** (render cutoff)
-
-Adjust these before exporting to fine‑tune individual entries.
-
----
-
-### 4. Exporting
-
-#### Export IDE
-
-1. Select one or more mesh objects.
-2. Click **Export IDE**.
-3. In the file dialog, choose an output path (extension auto‑appended if needed).
-4. Set the **Starting Model ID** in the popup if you need a custom base.
-5. Confirm → generates a `.ide` file containing:
-
-   ```text
-   objs
-   <ModelID>, <CleanName>, <TXD>, <RenderDist>, <Flag>
-   … (one line per unique model)
-   end
-   ```
-
-#### Export IPL
-
-1. Select meshes to place in the world.
-2. Click **Export IPL**.
-3. Choose output path; extension is ensured to be `.ipl`.
-4. In the operator panel, adjust:
-
-   * **Starting Model ID**
-   * **Apply Default Rotation** (and specify Euler angles)
-   * **Export Type**: ASCII (`normal`) or binary (`bnry`) .. Note Binary Is Experimental
-5. Confirm → generates the `.ipl` file with instance definitions:
-
-   * ASCII format begins with `inst` block, each line:
+   * Click **Export IDE** → choose filename. The tool writes a text `.ide` file:
 
      ```
-     ModelID, Name, 0, X, Y, Z, Rx, Ry, Rz, Rw, LOD
+     objs
+     <model_id>, <name>, <txd>, <draw_dist>, <flag>
+     ...
+     end
      ```
-   * Binary writes packed floats & integers for faster loading in mod tools.
+   * Unique names are assigned incremental model IDs starting from the Start ID.
+6. **Export IPL (ASCII)**
+
+   * Click **Export IPL** → choose filename. The tool writes an ASCII `inst` block (`inst ... end`) with object positions & rotations converted to GTA quaternion format (X/Y/Z negations to match game coordinate conventions). Binary IPL export was removed to avoid format issues.
+7. **Use outputs**
+
+   * Use the generated `.ide` and `.ipl` in your GTA SA pipeline / editors.
 
 ---
 
-## Property Overview
+## Implementation notes & decisions
 
-* **`scene.batch_txd_name`**: default `"generic"`
-* **`scene.batch_rename_base_name`**: default `"TypeName"`
-* **`Object.ide_flags`** property group:
-
-  * `texture_name` (String)
-  * `ide_flag` (Enum)
-  * `render_distance` (Int)
+* **Name cleaning**: `clean_collection_name()` removes `.dff` (case-insensitive). `clean_name()` removes trailing `.N` numeric suffixes from object names.
+* **Mapping**: Mapping uses the *collection name* where available, otherwise derived from the object name. That gives stable per-model IDs when many objects share a collection (recommended workflow).
+* **Collision tagging**: Uses a registered `DFFProperties` pointer property (`Object.dff.type`) to stay API-correct and undo-friendly. A fallback plain custom property (`obj["dff_type"]`) is written if the pointer fails for some reason.
+* **ASCII-only IPL**: The addon intentionally writes readable `inst` format to reduce accidental incompatibilities and to make debugging easier.
+* **File writes**: IDE/IPL files written as UTF-8 text with safe try/except and user-facing error reporting.
+* **Non-destructive**: Export is read-only to Blender data; marking collision only writes metadata to Blender objects (no mesh edits).
 
 ---
 
-## Tips & Best Practices
-* **Clean Naming**: The add‑on strips trailing numeric suffixes (e.g. `object.001` → `object`), so you can model copies without worrying about duplicate entries.
-* **Batch First**: Assign TXDs and flags in batch, then tweak per-object settings to save time.
-* **Rotation Offset**: Use **Apply Default Rotation** on IPL export if your models were authored in a different up‑axis or need a uniform orientation tweak.
+## Tips & best practices
+
+* Group model meshes into a collection named `model.dff` (or `model`) so exports use the collection name automatically.
+* Set `Start ID` to a value that won't collide with other model IDs you already have in your IDEs.
+* Keep backups of original IDE/IPL files before integrating new entries.
+* Use the **Batch assign TXD** to standardize textures quickly.
+* Use `Batch Rename` to give consistent object names when needed.
+
+---
+
+## Known limitations / future ideas
+
+* Binary IPL export intentionally removed for now
+* IDE flags list currently minimal; you can expand `IDE_FLAGS` to include all SA flags with descriptions. but i will add them soon.
+* Potential future additions: lod sorting and more sections of the ipl/ide file

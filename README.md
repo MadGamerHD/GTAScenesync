@@ -14,6 +14,7 @@ GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-styl
 ---
 
 ## Previews
+https://www.youtube.com/watch?v=mH0UEg7dVPs&feature=youtu.be
 
 <img width="180" height="600" alt="Screenshot 2025-08-16 233755" src="https://github.com/user-attachments/assets/bc3cd366-06d1-4377-ad89-eae9b978e1d7" />
 

@@ -1,10 +1,10 @@
 bl_info = {
     "name": "GTASceneSync (SA Only)",
     "author": "MadGamerHD",
-    "version": (2, 2, 0),
+    "version": (2, 3, 3),
     "blender": (4, 0, 0),
     "location": "View3D > UI > GTASceneSync",
-    "description": "Export GTA San Andreas IDE and IPL from Blender with batch and per-object settings + utility tools",
+    "description": "Export GTA San Andreas IDE and IPL from Blender, naming by collection and stripping .dff suffix",
     "category": "Import-Export",
 }
 
@@ -22,6 +22,11 @@ def clean_name(name: str) -> str:
     """Remove numeric suffixes from the model name."""
     return re.sub(r"\.\d+$", "", name)
 
+
+def clean_collection_name(name: str) -> str:
+    """Strip the .dff suffix from collection names."""
+    return re.sub(r"\.dff$", "", name, flags=re.IGNORECASE)
+
 # ----------------------------
 # Operators: GTASceneSync
 # ----------------------------
@@ -31,7 +36,7 @@ class ExportAsIDE(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
-    model_id: bpy.props.IntProperty(name="Starting Model ID", default=18631)
+    model_id: bpy.props.IntProperty(name="Starting Model ID", default=4542)
 
     def draw(self, context):
         self.layout.prop(self, "model_id")
@@ -43,23 +48,36 @@ class ExportAsIDE(bpy.types.Operator):
             return {'CANCELLED'}
         if not self.filepath.lower().endswith('.ide'):
             self.filepath += '.ide'
+
+        # use operator model_id, otherwise fallback to scene default
+        start_id = self.model_id or getattr(context.scene, "gtass_model_id", 4542)
+
         unique = {}
-        cur = self.model_id
-        with open(self.filepath, 'w') as f:
-            f.write('objs\n')
-            for obj in objs:
-                base = clean_name(obj.name)
-                props = obj.ide_flags
-                if base not in unique:
-                    unique[base] = (cur, props.texture_name, props.render_distance, props.ide_flag)
-                    cur += 1
-            for name, (mid, txd, dist, flag) in unique.items():
-                f.write(f"{mid}, {name}, {txd}, {dist}, {flag}\n")
-            f.write('end\n')
+        cur = start_id
+        try:
+            with open(self.filepath, 'w', encoding='utf-8') as f:
+                f.write('objs\n')
+                for obj in objs:
+                    coll = obj.users_collection[0] if obj.users_collection else None
+                    base = clean_collection_name(coll.name) if coll else clean_name(obj.name)
+                    props = obj.ide_flags
+                    if base not in unique:
+                        unique[base] = (cur, props.texture_name, props.render_distance, props.ide_flag)
+                        cur += 1
+                for name, (mid, txd, dist, flag) in unique.items():
+                    f.write(f"{mid}, {name}, {txd}, {dist}, {flag}\n")
+                f.write('end\n')
+        except Exception as e:
+            self.report({'ERROR'}, f"IDE export failed: {e}")
+            return {'CANCELLED'}
+
         self.report({'INFO'}, f"IDE export complete: {self.filepath}")
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        # prefill operator model_id from scene setting
+        if (not self.model_id or self.model_id == 4542) and hasattr(context.scene, "gtass_model_id"):
+            self.model_id = context.scene.gtass_model_id
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -70,14 +88,10 @@ class ExportAsIPL(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
-    model_id: bpy.props.IntProperty(name="Starting Model ID", default=18631)
+    model_id: bpy.props.IntProperty(name="Starting Model ID", default=4542)
     apply_default_rotation: bpy.props.BoolProperty(name="Apply Default Rotation", default=False)
     default_rotation: bpy.props.FloatVectorProperty(name="Default Rotation (Euler)", subtype='EULER', default=(0,0,0))
-    export_type: bpy.props.EnumProperty(
-        name="Export Type",
-        items=[('normal','ASCII .ipl',''),('bnry','Binary .ipl','')],
-        default='normal'
-    )
+    # Removed binary export option: always exports ASCII .ipl
 
     def draw(self, context):
         layout = self.layout
@@ -85,7 +99,6 @@ class ExportAsIPL(bpy.types.Operator):
         layout.prop(self, 'apply_default_rotation')
         if self.apply_default_rotation:
             layout.prop(self, 'default_rotation')
-        layout.prop(self, 'export_type')
 
     def validate_filepath(self):
         p = Path(self.filepath)
@@ -94,43 +107,37 @@ class ExportAsIPL(bpy.types.Operator):
         self.filepath = str(p)
 
     def generate_mapping(self, objs):
-        mapping, cur = {}, self.model_id
+        mapping, cur = {}, self.model_id or bpy.context.scene.gtass_model_id
         for o in objs:
-            n = clean_name(o.name) or 'Unnamed'
-            if n not in mapping:
-                mapping[n] = cur
+            # Prefer collection name if present, otherwise cleaned object name
+            coll = o.users_collection[0] if o.users_collection else None
+            name = clean_collection_name(coll.name) if coll else clean_name(o.name)
+            name = name or 'Unnamed'
+            if name not in mapping:
+                mapping[name] = cur
                 cur += 1
         return mapping
 
     def write_ipl(self, f, objs, mapping):
         inter, lod = 0, -1
         fmt = lambda v: f"{v:.6f}"
-        if self.export_type == 'normal':
-            f.write('# Exported with GTASceneSync\ninst\n')
-            for obj in objs:
-                wm = obj.matrix_world
-                pos = wm.to_translation(); base = wm.to_quaternion()
-                if self.apply_default_rotation:
-                    off = mathutils.Euler(self.default_rotation,'XYZ').to_quaternion()
-                    base = off @ base
-                rx, ry, rz, rw = -base.x, base.y, -base.z, base.w
-                mid = mapping.get(clean_name(obj.name), -1)
-                nm = clean_name(obj.name) or 'Unnamed'
-                f.write(
-                    f"{mid}, {nm}, {inter}, {fmt(pos.x)}, {fmt(pos.y)}, {fmt(pos.z)}, {fmt(rx)}, {fmt(ry)}, {fmt(rz)}, {fmt(rw)}, {lod}\n"
-                )
-            f.write('end\n')
-        else:
-            for obj in objs:
-                wm = obj.matrix_world
-                pos = wm.to_translation(); base = wm.to_quaternion()
-                if self.apply_default_rotation:
-                    off = mathutils.Euler(self.default_rotation,'XYZ').to_quaternion()
-                    base = off @ base
-                rx, ry, rz, rw = -base.x, base.y, -base.z, base.w
-                mid = mapping.get(clean_name(obj.name), -1)
-                rec = struct.pack('<7f3i', pos.x, pos.y, pos.z, rx, ry, rz, rw, mid, inter, lod)
-                f.write(rec)
+        # Always write ASCII .ipl (normal mode). Binary export removed.
+        f.write('# Exported with GTASceneSync\ninst\n')
+        for obj in objs:
+            wm = obj.matrix_world
+            pos = wm.to_translation(); base = wm.to_quaternion()
+            if self.apply_default_rotation:
+                off = mathutils.Euler(self.default_rotation,'XYZ').to_quaternion()
+                base = off @ base
+            rx, ry, rz, rw = -base.x, base.y, -base.z, base.w
+            coll = obj.users_collection[0] if obj.users_collection else None
+            nm = clean_collection_name(coll.name) if coll else clean_name(obj.name)
+            nm = nm or 'Unnamed'
+            mid = mapping.get(nm, -1)
+            f.write(
+                f"{mid}, {nm}, {inter}, {fmt(pos.x)}, {fmt(pos.y)}, {fmt(pos.z)}, {fmt(rx)}, {fmt(ry)}, {fmt(rz)}, {fmt(rw)}, {lod}\n"
+            )
+        f.write('end\n')
 
     def execute(self, context):
         objs = [o for o in context.selected_objects if o.type == 'MESH']
@@ -139,9 +146,8 @@ class ExportAsIPL(bpy.types.Operator):
             return {'CANCELLED'}
         self.validate_filepath()
         mapping = self.generate_mapping(objs)
-        mode = 'wb' if self.export_type=='bnry' else 'w'
         try:
-            with open(self.filepath, mode) as f:
+            with open(self.filepath, 'w', encoding='utf-8') as f:
                 self.write_ipl(f, objs, mapping)
         except Exception as e:
             self.report({'ERROR'}, f"IPL export failed: {e}")
@@ -150,6 +156,8 @@ class ExportAsIPL(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        if (not self.model_id or self.model_id == 4542) and hasattr(context.scene, "gtass_model_id"):
+            self.model_id = context.scene.gtass_model_id
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -209,22 +217,39 @@ class OBJECT_OT_remove_materials(bpy.types.Operator):
         self.report({'INFO'}, "Materials removed from selected objects.")
         return {"FINISHED"}
 
+# ----------------------------
+# DFF property group (restores original 'dff' behavior safely)
+# ----------------------------
+class DFFProperties(bpy.types.PropertyGroup):
+    type: bpy.props.EnumProperty(
+        name="DFF Type",
+        items=[('','None','No DFF type'), ('COL','Collision','Collision object')],
+        default=''
+    )
+
 class OBJECT_OT_convert_to_collision(bpy.types.Operator):
-    """Convert selected objects to Collision Object"""
+    """Convert selected objects to Collision Object (tags them, doesn't change meshes)"""
     bl_idname = "object.convert_to_collision"
     bl_label = "Convert to Collision Object"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
         selected_objects = context.selected_objects
+        if not selected_objects:
+            self.report({"WARNING"}, "No objects selected!")
+            return {"CANCELLED"}
+        count = 0
         for obj in selected_objects:
-            if obj.type == "MESH":  # Assuming we only want to change mesh objects
-                # Example: Assuming you have a custom property to store type info
-                if not hasattr(obj, "dff"):
-                    obj.dff = bpy.props.PointerProperty(
-                        type=bpy.types.PropertyGroup
-                    )  # Create a custom property group if needed
-                obj.dff.type = "COL"  # Set type to 'COL' (Collision Object)
+            if obj.type == "MESH":
+                # Use the registered PointerProperty (DFFProperties) to mark this as collision
+                try:
+                    obj.dff.type = 'COL'
+                    count += 1
+                except Exception:
+                    # As a fallback, write a custom property for compatibility
+                    obj["dff_type"] = "COL"
+                    count += 1
+        self.report({'INFO'}, f"Marked {count} objects as collision objects.")
         return {"FINISHED"}
 
 # ----------------------------
@@ -232,7 +257,7 @@ class OBJECT_OT_convert_to_collision(bpy.types.Operator):
 # ----------------------------
 IDE_FLAGS = [
     ("0", "(SA)Default", "No special flags"),
-    # ... as before ...
+    # (You can expand this list with the full flags table if desired.)
 ]
 class IDEFlagsProperties(bpy.types.PropertyGroup):
     ide_flag: bpy.props.EnumProperty(name="IDE Flag", items=IDE_FLAGS, default='0')
@@ -252,6 +277,7 @@ class GTASceneSyncUIPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+        sel_mesh_count = sum(1 for o in context.selected_objects if o.type=='MESH')
 
         # Utility Tools
         layout.label(text="Utilities:")
@@ -273,7 +299,7 @@ class GTASceneSyncUIPanel(bpy.types.Panel):
         layout.separator()
 
         # Per-object settings
-        layout.label(text="Selected Object Settings:")
+        layout.label(text=f"Selected Objects: {sel_mesh_count}")
         for obj in context.selected_objects:
             if obj.type != 'MESH': continue
             box = layout.box()
@@ -283,10 +309,16 @@ class GTASceneSyncUIPanel(bpy.types.Panel):
             box.prop(obj.ide_flags, 'render_distance', text='Draw Dist')
         layout.separator()
 
-        # Export buttons
+        # Export buttons & defaults
         layout.label(text="Exports:")
-        layout.operator(ExportAsIDE.bl_idname, text="Export IDE")
-        layout.operator(ExportAsIPL.bl_idname, text="Export IPL")
+        row = layout.row(align=True)
+        row.prop(scene, 'gtass_model_id', text='Start ID')
+        row = layout.row(align=True)
+        # prefill operator properties with scene start ID so the file dialog opens with that ID
+        op = row.operator(ExportAsIDE.bl_idname, text="Export IDE")
+        op.model_id = scene.gtass_model_id
+        op2 = row.operator(ExportAsIPL.bl_idname, text="Export IPL")
+        op2.model_id = scene.gtass_model_id
 
 # ----------------------------
 # Batch TXD Operator
@@ -316,21 +348,25 @@ classes = [
     ExportAsIDE, ExportAsIPL, BatchSetTXD,
     OBJECT_OT_batch_rename, OBJECT_OT_reset_position,
     OBJECT_OT_remove_materials, OBJECT_OT_convert_to_collision,
-    IDEFlagsProperties, GTASceneSyncUIPanel
+    DFFProperties, IDEFlagsProperties, GTASceneSyncUIPanel
 ]
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Object.ide_flags = bpy.props.PointerProperty(type=IDEFlagsProperties)
+    bpy.types.Object.dff = bpy.props.PointerProperty(type=DFFProperties)  # restored safe dff property
     bpy.types.Scene.batch_txd_name = bpy.props.StringProperty(name="Batch TXD Name", default="generic")
     bpy.types.Scene.batch_rename_base_name = bpy.props.StringProperty(name="Base Rename Name", default="TypeName")
-
+    # scene-level default starting model id
+    bpy.types.Scene.gtass_model_id = bpy.props.IntProperty(name="Start Model ID", default=4542, min=0)
 
 def unregister():
     del bpy.types.Object.ide_flags
+    del bpy.types.Object.dff
     del bpy.types.Scene.batch_txd_name
     del bpy.types.Scene.batch_rename_base_name
+    del bpy.types.Scene.gtass_model_id
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
 

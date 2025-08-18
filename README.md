@@ -114,3 +114,8 @@ GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-styl
 
   * LOD sorting for better scene optimization.
   * Support for more sections of IDE/IPL files, once workflow and stability are fully addressed.
+
+
+---
+
+Note: Future updates will be rolled out gradually. As I continue to explore and better understand the IPL and IDE formats, new features and improvements will be added carefully to ensure stability and quality.

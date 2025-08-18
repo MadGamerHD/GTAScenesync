@@ -256,9 +256,35 @@ class OBJECT_OT_convert_to_collision(bpy.types.Operator):
 # PropertyGroup
 # ----------------------------
 IDE_FLAGS = [
-    ("0", "(SA)Default", "No special flags"),
-    # (You can expand this list with the full flags table if desired.)
+    # Basic Flags (all models except peds/vehicles)
+    ("4", "Draw Last", "Draw after opaque geometry. Automatically applies Additive."),
+    ("8", "Additive", "Additive blending."),
+    ("64", "No Z-Write", "Do not write to Z buffer (e.g., static shadow models)."),
+    ("128", "No Shadows", "Shadows will not be cast on this model."),
+    ("2097152", "No Backface Culling", "Disables backface culling."),
+
+    # Clump Flags (animated/clump models only)
+    ("32", "Door", "This model is a door."),
+
+    # Atomic Flags (Mutually Exclusive)
+    ("512", "Code Glass", "Breakable glass. Texture changes when broken. Requires object.dat."),
+    ("1024", "Artist Glass", "Breakable glass. Texture does not change when broken. Requires object.dat."),
+    ("2048", "Garage Door", "Identifies the model as a garage door."),
+    ("8192", "Tree", "Normal tree affected by wind."),
+    ("16384", "Palm Tree", "Palm tree affected by wind."),
+    ("1048576", "Tag", "Sprayable tag; switches mesh when sprayed."),
+    ("4194304", "No Cover", "Peds cannot take cover behind this model."),
+    ("8388608", "Wet Only", "Wet only model."),
+
+    # Atomic Flags (Non-Mutually Exclusive)
+    ("1", "Wet Roads", "Use wet road reflections."),
+    ("4096", "Damageable", "Has a damaged version (e.g., custom car components). Cannot be used by timed atomic models."),
+    ("32768", "No Flyer Collide", "Prevents destruction by planes/helicopters (approximate)."),
+
+    # Default flag
+    ("0", "(SA)Default", "No special flags")
 ]
+
 class IDEFlagsProperties(bpy.types.PropertyGroup):
     ide_flag: bpy.props.EnumProperty(name="IDE Flag", items=IDE_FLAGS, default='0')
     render_distance: bpy.props.IntProperty(name="Render Distance", default=299, min=0, max=1200)
@@ -372,3 +398,4 @@ def unregister():
 
 if __name__ == '__main__':
     register()
+

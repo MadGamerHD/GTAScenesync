@@ -14,6 +14,7 @@ GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-styl
   * Working with Collections (recommended workflow: group models by collection).
   * Selecting mesh objects.
 * **Optional dependency**: *DragonFF* is required for some features, such as **To Collision**, to work correctly.
+* https://github.com/Parik27/DragonFF
 ---
 
 ## Previews

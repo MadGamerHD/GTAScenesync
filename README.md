@@ -108,7 +108,7 @@ GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-styl
 
 * **IDE flags list minimal:** Currently, only a basic set of flags is included. I plan to expand `IDE_FLAGS` to cover all San Andreas object flags with descriptions, but this will come in future updates once other core features are stable.
 
-* **No new IDE/IPL sections yet (e.g., TOBJ, ANIM, PEDS, etc.):** I’m currently focused on other tools and projects, so expanding sections is on hold. GTASceneSync will continue to be updated and improved over time, but new releases will take a while. When I do work on an update, I will polish each feature carefully, and if a feature doesn’t feel right, I may remove or refine it before release.
+* **No new IDE/IPL sections yet (e.g., TOBJ, etc.):** I’m currently focused on other tools and projects, so expanding sections is on hold. GTASceneSync will continue to be updated and improved over time, but new releases will take a while. When I do work on an update, I will polish each feature carefully, and if a feature doesn’t feel right, I may remove or refine it before release.
 
 * **Potential future additions:**
 

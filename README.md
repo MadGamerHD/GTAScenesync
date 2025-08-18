@@ -5,12 +5,15 @@
 **Short description**
 GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-style IDE and IPL files from Blender scenes. It names instances by collection (strips `.dff`) or cleaned object names, lets you assign per-object IDE flags / TXD names, batch-assign TXDs, mark collision objects, then export IDE and (ASCII) IPL files ready for GTA San Andreas workflows.
 
-**Target Blender / prerequisites**
+### 🎯 Target Blender / Prerequisites
 
-* Designed for Blender 4.0+ (backwards compatibility generally ok but tested with 4.x)
-* No external Python libraries required — pure Blender Python API
-* Basic familiarity with Blender Collections and selecting objects
+* **Blender 4.0+** (tested on 4.x; some backwards compatibility with earlier versions should work but not guaranteed).
+* **No external Python libraries required** — built entirely with the Blender Python API.
+* **Basic familiarity with Blender**:
 
+  * Working with Collections (recommended workflow: group models by collection).
+  * Selecting mesh objects.
+* **Optional dependency**: *DragonFF* is required for some features, such as **To Collision**, to work correctly.
 ---
 
 ## Previews

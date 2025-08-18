@@ -99,11 +99,18 @@ GTASceneSync is a Blender addon (San Andreas-focused) that helps export GTA-styl
 * Keep backups of original IDE/IPL files before integrating new entries.
 * Use the **Batch assign TXD** to standardize textures quickly.
 * Use `Batch Rename` to give consistent object names when needed.
-
+* 
 ---
 
-## Known limitations / future ideas
+### Known limitations / future ideas (v2.3.3)
 
-* Binary IPL export intentionally removed for now
-* IDE flags list currently minimal; you can expand `IDE_FLAGS` to include all SA flags with descriptions. but i will add them soon.
-* Potential future additions: lod sorting and more sections of the ipl/ide file
+* **Binary IPL export removed:** The addon now only writes ASCII `.ipl` files. Binary export was removed intentionally to avoid accidental broken outputs. I may revisit this in the future, but for now, ASCII ensures stability and readability.
+
+* **IDE flags list minimal:** Currently, only a basic set of flags is included. I plan to expand `IDE_FLAGS` to cover all San Andreas object flags with descriptions, but this will come in future updates once other core features are stable.
+
+* **No new IDE/IPL sections yet (e.g., TOBJ, ANIM, PEDS, etc.):** I’m currently focused on other tools and projects, so expanding sections is on hold. GTASceneSync will continue to be updated and improved over time, but new releases will take a while. When I do work on an update, I will polish each feature carefully, and if a feature doesn’t feel right, I may remove or refine it before release.
+
+* **Potential future additions:**
+
+  * LOD sorting for better scene optimization.
+  * Support for more sections of IDE/IPL files, once workflow and stability are fully addressed.
